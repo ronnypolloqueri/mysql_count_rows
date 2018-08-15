@@ -1,0 +1,52 @@
+#!/bin/bash
+if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+	echo -e "Modo de empleo: mysql_count_rows <db> <user> [pass]"
+	echo
+	echo "Cuenta el numero de registro de todas las tablas de una base de datos mysql"
+	echo -e "Si no se proporciona un password se pedirá ingresarlo, pero sin mostrarlo."
+	exit 0
+fi
+
+if [ "$1" = "" ]; then
+	echo "Ingrese el nombre de la base de datos"
+	exit 2
+fi
+
+if [ "$2" = "" ]; then
+	echo "Ingrese el usuario"
+	exit 2
+fi
+
+db=$1
+user=$2
+out="totales.csv"
+
+if [[ "$3" == "" ]]; then
+	echo -n "Password:"
+	read -s pass
+else
+	pass=$3
+fi
+
+if [[ -d .tmp ]]; then
+	rm -rf .tmp
+fi
+
+mkdir .tmp
+
+echo
+echo "Database seleccionada $db y usuario $user, ejecutando consulta..."
+mysql --host=192.168.0.24 -u $user -p$pass -e "use $db;show tables" > .tmp/temp
+sed '1d' .tmp/temp > .tmp/tables
+num_tables=$(cat .tmp/tables | wc -l)
+i=1
+for t in $(cat .tmp/tables); do 
+	mysql --host=192.168.0.24 -u $user -p$pass -e "select count(*) from $db.$t;" > .tmp/result;
+	r=$(tail -n 1 .tmp/result); 
+	echo "$r,$t" ;
+	i=$( expr $i + 1)
+	echo -ne "Completado ($i/$num_tables) \033[0K\r" >&2
+done > $out 
+rm -rf .tmp
+echo "Completado (100/100)"
+echo "Los totales de las tablas se guardaron en $out."
